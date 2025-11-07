@@ -1,0 +1,19 @@
+body {
+    width: 375px;
+    max-width: 375px;
+    min-height: 667px;
+    background-color: #f8f9fa;
+}
+
+.logo-placeholder {
+    width: 120px;
+    height: 60px;
+    background-color: #0d6efd;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: bold;
+    font-size: 18px;
+}
