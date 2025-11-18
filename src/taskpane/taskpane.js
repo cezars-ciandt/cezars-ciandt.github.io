@@ -5,151 +5,206 @@
 
 /* global console, document, Excel, Office */
 
-// Initialize the page
-function initializePage() {
-  // Initialize submit button handler
-  const submitButton = document.getElementById("submitConnection");
-  if (submitButton) {
-    submitButton.onclick = saveToken;
-  }
-  
-  // Load saved token if exists
-  loadSavedToken();
-  
-  // Check health status
-  checkHealthStatus();
-}
+// Initialize Office Add-in - everything runs under Excel context
+Office.onReady((info) => {
+    if (info.host === Office.HostType.Excel) {
+      console.log("Running in Excel context");
 
-// Check health status of external API
-async function checkHealthStatus() {
-  const healthBox = document.getElementById("healthStatus");
-  const healthText = document.getElementById("healthText");
-  
-  if (!healthBox || !healthText) return;
-  
-  // Set checking state
-  healthBox.className = "health-status checking";
-  healthText.textContent = "Checking...";
-  
-  try {
-    const response = await fetch("https://flow.ciandt.com/ai-orchestration-api/v1/health", {
-      method: "GET",
-      mode: "cors",
-      headers: {
-        "Accept": "application/json"
-      }
-    });
+      document.getElementById("submitConnection").onclick = saveToken;
+      document.getElementById("executeData").onclick = executeData;
+    };
+
+});
     
-    if (response.ok) {
-      // Success
-      healthBox.className = "health-status success";
-      healthText.textContent = `${response.status}`;
-    } else {
-      // Error response
-      healthBox.className = "health-status error";
-      healthText.textContent = `${response.status}`;
-    }
-  } catch (error) {
-    // Network error or CORS issue
-    healthBox.className = "health-status error";
-    healthText.textContent = "CORS/Network Error";
-    console.error("Health check failed:", error);
-    console.log("This may be a CORS issue. The API server needs to allow requests from your origin.");
-  }
-}
-
-// Check if Office is available, otherwise init directly
-if (typeof Office !== 'undefined' && Office.onReady) {
-  Office.onReady((info) => {
-    initializePage();
-  });
-} else {
-  // Standalone mode (not in Office environment)
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initializePage);
-  } else {
-    initializePage();
-  }
-}
-
-// Save token as a cookie
-function saveToken() {
+async function saveToken() {
   const tokenInput = document.getElementById("connectionInput");
+
   const token = tokenInput.value.trim();
-  
-  if (!token) {
-    alert("Please enter a token");
-    return;
-  }
-  
-  try {
-    // Set cookie with 365 days expiration
-    const expirationDays = 365;
-    const date = new Date();
-    date.setTime(date.getTime() + (expirationDays * 24 * 60 * 60 * 1000));
-    const expires = "expires=" + date.toUTCString();
-    document.cookie = `flowToken=${token}; ${expires}; path=/; SameSite=Strict`;
+
+  await Excel.run(async (context) => {
+    const settings = context.workbook.settings;
+    settings.add("flowToken", token);
     
-    alert("Token saved successfully!");
-    console.log("Token saved as cookie");
-  } catch (error) {
-    console.error("Error saving token:", error);
-    alert("Error saving token. Please try again.");
-  }
-}
-
-// Load saved token from cookie
-function loadSavedToken() {
-  try {
-    const savedToken = getCookie("flowToken");
-    const tokenInput = document.getElementById("connectionInput");
-    
-    if (savedToken && tokenInput) {
-      tokenInput.value = savedToken;
-      console.log("Token loaded from cookie");
-    }
-  } catch (error) {
-    console.error("Error loading token:", error);
-  }
-}
-
-// Helper function to get cookie by name
-function getCookie(name) {
-  const nameEQ = name + "=";
-  const cookies = document.cookie.split(';');
+  });
   
-  for (let i = 0; i < cookies.length; i++) {
-    let cookie = cookies[i].trim();
-    if (cookie.indexOf(nameEQ) === 0) {
-      return cookie.substring(nameEQ.length, cookie.length);
-    }
-  }
-  return null;
-}
+};
 
-// Get the stored token (can be used by other functions)
-export function getToken() {
-  return getCookie("flowToken");
-}
+async function getToken() {
 
-export async function run() {
-  try {
+  await Excel.run(async (context) => {
+    const settings = context.workbook.settings;
+    const tokenRetr = settings.getItem("flowToken");
+    tokenRetr.load("value");
+  })
+  await context.sync();
+  
+  return tokenRetr.value;
+};
+
+async function createFormData() {
+    const boundary = '----FormBoundary' + Date.now();
+
     await Excel.run(async (context) => {
-      /**
-       * Insert your Excel code here
-       */
-      const range = context.workbook.getSelectedRange();
+        const currentSheet = context.workbook.worksheets.getActiveWorksheet();
+        const sheetName = currentSheet.load('name');
+        const usedRange = currentSheet.getUsedRange();
+        usedRange.load("values");
 
-      // Read the range address
-      range.load("address");
+        await context.sync();
 
-      // Update the fill color
-      range.format.fill.color = "yellow";
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.aoa_to_sheet(usedRange.values);
+        XLSX.utils.book_append_sheet(wb, ws, currentSheet.name);
 
-      await context.sync();
-      console.log(`The range address was ${range.address}.`);
+        // Converte a pasta de trabalho para um formato binário
+        const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'binary' });
+
+        // Função para converter string em array buffer
+        function s2ab(s) {
+          const buf = new ArrayBuffer(s.length);
+          const view = new Uint8Array(buf);
+          for (let i = 0; i < s.length; i++) {
+            view[i] = s.charCodeAt(i) & 0xFF;
+              }
+          return buf;
+            };
+
+        // Converte a string binária em um ArrayBuffer
+        const fileData = s2ab(wbout);
+
+        const authHeaders = { 'FlowToken': await getToken() };
+        const BASE_URL = "https://flow.ciandt.com/advanced-flows";
+        const FLOW_ID = "79f9184d-9823-4f73-b284-dd24bdb852dc";
+        const protocol = new URL(BASE_URL).protocol;
+        const httpModule = protocol === 'https:' ? require('https') : require('http');
+
+        let data = '';
+        data += `--${boundary}\r\n`;
+        data += `Content-Disposition: form-data; name="file"; filename="${filename}"\r\n`;
+        data += `Content-Type: application/octet-stream\r\n\r\n`;
+
+        const payload = Buffer.concat([
+            Buffer.from(data, 'utf8'),
+            fileData,
+            Buffer.from(`\r\n--${boundary}--\r\n`, 'utf8')
+        ]);
+        
+        console.log({ payload, boundary });    
+        return { payload, boundary };
+      }
+    )};
+
+    // Helper function to make HTTP requests
+function makeRequest(options, data) {
+    return new Promise((resolve, reject) => {
+        const req = httpModule.request(options, (res) => {
+            let responseData = '';
+            res.on('data', (chunk) => { responseData += chunk; });
+            res.on('end', () => {
+                if (res.statusCode >= 200 && res.statusCode < 300) {
+                    try {
+                        resolve(JSON.parse(responseData));
+                    } catch (e) {
+                        resolve(responseData);
+                    }
+                } else {
+                    reject(new Error(`Request failed with status ${res.statusCode}: ${responseData}`));
+                }
+            });
+        });
+        req.on('error', reject);
+        if (data) req.write(data);
+        req.end();
     });
-  } catch (error) {
-    console.error(error);
-  }
-}
+};
+
+async function uploadAndExecuteFlow() {
+    try {
+        const authHeaders = { 'FlowToken': await getToken() };
+
+        // Step 1: Upload file for File/VideoFile File-UOq2c
+        const { payload: filePayload1, boundary: fileBoundary1 } = await createFormData();
+
+        const fileUploadOptions1 = {
+            hostname: 'flow.ciandt.com',
+            port: 443,
+            path: '/api/v2/files',
+            method: 'POST',
+            headers: {
+                'Content-Type': `multipart/form-data; boundary=${fileBoundary1}`,
+                'Content-Length': filePayload1.length,
+                ...authHeaders
+            }
+        };
+
+        const fileUploadResult1 = await makeRequest(fileUploadOptions1, filePayload1);
+        const filePath1 = fileUploadResult1.path;
+        console.log('File upload 1 successful! File path:', filePath1);
+
+        // Step 2: Execute flow with all file paths
+        const executePayload = JSON.stringify({
+            "output_type": "chat",
+            "input_type": "chat",
+            "input_value": "hello world!",
+            "tweaks": {
+            "File-UOq2c": {
+                      "path": [
+                                "filePath1"
+                      ]
+            }
+            }
+        });
+
+        const executeOptions = {
+            hostname: 'flow.ciandt.com',
+            port: 443,
+            path: `/api/v1/run/lithia-ddl-gen-test`,
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Content-Length': Buffer.byteLength(executePayload),
+                ...authHeaders
+            }
+        };
+
+        const result = await makeRequest(executeOptions, executePayload);
+        console.log('Flow execution successful!');
+        console.log(result);
+
+    } catch (error) {
+        console.error('Error:', error.message);
+    }
+};
+        
+    //     // Cria uma nova pasta de trabalho e adiciona os dados
+    //     const wb = XLSX.utils.book_new();
+    //     const ws = XLSX.utils.aoa_to_sheet(usedRange.values);
+    //     XLSX.utils.book_append_sheet(wb, ws, activeSheet.name);
+
+    //     // Converte a pasta de trabalho para um formato binário
+    //     const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'binary' });
+
+    //     // Função para converter string em array buffer
+    //     function s2ab(s) {
+    //       const buf = new ArrayBuffer(s.length);
+    //       const view = new Uint8Array(buf);
+    //       for (let i = 0; i < s.length; i++) {
+    //         view[i] = s.charCodeAt(i) & 0xFF;
+    //           }
+    //       return buf;
+    //     };
+
+    //     // Converte a string binária em um ArrayBuffer
+    //     const binaryData = s2ab(wbout);
+    //     const apiURL = "https://flow.ciandt.com/advanced-flows/" + "/api/v1/run/" + "79f9184d-9823-4f73-b284-dd24bdb852dc";
+
+    //     let headers = 
+    // });
+
+    // return { payload, boundary };
+
+
+async function executeData() {
+  await uploadAndExecuteFlow();
+
+};

@@ -51,6 +51,9 @@ module.exports = async (env, options) => {
       ],
     },
     plugins: [
+      new ProvidePlugin({
+        Buffer: ["buffer", "Buffer"],
+      }),
       new HtmlWebpackPlugin({
         filename: "taskpane.html",
         template: "./src/taskpane/taskpane.html",
