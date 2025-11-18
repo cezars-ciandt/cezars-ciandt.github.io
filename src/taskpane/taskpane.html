@@ -1,103 +1,42 @@
 <!DOCTYPE html>
-<html>
-
-<head>
+<html lang="en">
+  <head>
     <meta charset="UTF-8" />
-    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Contoso Task Pane Add-in</title>
-
-    <!-- Office JavaScript API -->
-    <script type="text/javascript" src="https://appsforoffice.microsoft.com/lib/1.1/hosted/office.js"></script>
-
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
-
-    <style>
-        body {
-            width: 375px;
-            max-width: 375px;
-            min-height: 667px;
-            background-color: #f8f9fa;
-        }
-
-        .logo-placeholder {
-            width: 120px;
-            height: 60px;
-            background-color: #0d6efd;
-            border-radius: 8px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: bold;
-            font-size: 18px;
-        }
-    </style>
-</head>
-
-<body>
-    <div class="container-fluid p-3 h-100">
-        <!-- Logo -->
-        <div class="text-center mb-4 p-3 bg-white rounded shadow-sm">
-            <div class="logo-placeholder mx-auto">
-                MyApp
-            </div>
-        </div>
-
-        <!-- Buttons -->
-        <div class="d-grid gap-3 mb-4">
-            <button id="testConnection" class="btn btn-primary btn-lg">
-                <i class="bi bi-wifi me-2"></i>
-                Testar Conexão
-            </button>
-
-            <button id="createConnection" class="btn btn-secondary btn-lg">
-                <i class="bi bi-plus-circle me-2"></i>
-                Criar Conexão
-            </button>
-
-            <button id="executeData" class="btn btn-success btn-lg">
-                <i class="bi bi-play-circle me-2"></i>
-                Executar Dados
-            </button>
-        </div>
-
-        <!-- Token Form (hidden by default) -->
-        <div id="tokenForm" class="card shadow-sm d-none">
-            <div class="card-body">
-                <h6 class="card-title mb-3">Configurar Token</h6>
-                <div class="mb-3">
-                    <label for="tokenInput" class="form-label fw-semibold">Token do Fluxo</label>
-                    <input type="text" id="tokenInput" class="form-control" placeholder="Cole seu token aqui...">
-                </div>
-                <div class="d-flex gap-2">
-                    <button id="saveToken" class="btn btn-primary flex-fill">
-                        <i class="bi bi-check-lg me-1"></i>
-                        Salvar
-                    </button>
-                    <button id="cancelToken" class="btn btn-outline-secondary flex-fill">
-                        <i class="bi bi-x-lg me-1"></i>
-                        Cancelar
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Status Messages -->
-        <div id="statusMessage"></div>
-
-        <!-- Loading Spinner Template (hidden) -->
-        <div id="loadingSpinner" class="d-none">
-            <div class="spinner-border spinner-border-sm me-2" role="status">
-                <span class="visually-hidden">Loading...</span>
-            </div>
-        </div>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="./taskpane.css" />
+    <title>CI&T Flow - Lithia Toolbox</title>
+  </head>
+  <body>
+<div class="logo-container">
+  <img src="../../assets/ciandt_logo.png" alt="CI&T Logo" class="logo">
+</div>
+<h1>CI&T Flow - Lithia Toolbox</h1>
+<ul>
+  <li>
+    <input type="checkbox" checked class="c1">
+    <i class="first"></i>
+    <h2>Setup Connection</h2>
+    <div class="first connection-form">
+      <input type="text" id="connectionInput" placeholder="Enter your flow token" class="connection-input">
+      <button type="button" id="submitConnection" class="submit-btn">Submit</button>
     </div>
-
-    <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
-    <script type="text/javascript" src="taskpane.js"></script>
-</body>
-
+    </li>
+    <li id="testConnection" class="button-item">
+      <h2>Test Connection</h2>
+    </li>
+    <li id="executeData" class="button-item">
+      <h2>Execute Data</h2>
+    </li>
+</ul>
+    <div class="health-container">
+      <label class="health-label">Flow Status:</label>
+      <div id="healthStatus" class="health-status">
+        <span id="healthText">Checking...</span>
+      </div>
+    </div>
+    <script type="module" src="./taskpane.js"></script>
+  </body>
 </html>
